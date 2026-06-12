@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Админ | Сафийчик</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { background: #0a0710; font-family: 'Segoe UI', sans-serif; color: #f0e6ff; padding: 1.5rem; }
+        .container { max-width: 800px; margin: 0 auto; }
+        .card { background: #1a1025; border-radius: 2rem; padding: 1.5rem; margin-bottom: 1.5rem; border: 1px solid #ff6b8a; }
+        .card-title { font-size: 1.3rem; font-weight: bold; margin-bottom: 1rem; border-left: 4px solid #ff6b8a; padding-left: 0.8rem; }
+        .entry { background: #2a1e32; padding: 0.8rem; border-radius: 1rem; margin-bottom: 0.5rem; border-left: 3px solid #ffb6c1; }
+        .entry-date { font-size: 0.7rem; opacity: 0.6; }
+        button { background: #ff6b8a; border: none; padding: 0.8rem; border-radius: 1rem; color: white; font-weight: bold; cursor: pointer; margin-top: 0.5rem; width: 100%; }
+        .inline-form { display: flex; gap: 0.5rem; margin-top: 1rem; }
+        .inline-form input { flex: 1; padding: 0.8rem; border-radius: 1rem; border: none; }
+        .inline-form button { width: auto; margin-top: 0; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="card">
+        <div class="card-title">📊 настроение Сафийчик</div>
+        <div id="herMood">загрузка...</div>
+    </div>
+
+    <div class="card">
+        <div class="card-title">💬 чего ей не хватает</div>
+        <div id="missingList">загрузка...</div>
+    </div>
+
+    <div class="card">
+        <div class="card-title">💌 отправить пожелание</div>
+        <div class="inline-form">
+            <input type="text" id="wishInput" placeholder="напиши пожелание...">
+            <button id="sendWishBtn">отправить</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    const BOT_TOKEN = '8771518518:AAEM7xZBtp7HCoBeDH8Ad3mW7Q3AHEPycz8';   // тот же токен
+    const ADMIN_ID = '8364303316';            // твой ID (можно не менять)
+
+    async function loadUpdates() {
+        try {
+            const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/getUpdates`);
+            const data = await res.json();
+            if (data.ok && data.result) {
+                const moodMsgs = data.result.filter(u => u.message && u.message.text && u.message.text.startsWith('mood:'));
+                if (moodMsgs.length) document.getElementById('herMood').innerHTML = moodMsgs[moodMsgs.length-1].message.text.slice(5);
+                const missingMsgs = data.result.filter(u => u.message && u.message.text && u.message.text.startsWith('missing:'));
+                if (missingMsgs.length) document.getElementById('missingList').innerHTML = missingMsgs.map(m => `<div class="entry"><div class="entry-date">📅 ${new Date(m.message.date*1000).toLocaleString()}</div>${m.message.text.slice(8)}</div>`).join('');
+            }
+        } catch(e) { console.log(e); }
+    }
+
+    async function sendWish() {
+        const text = document.getElementById('wishInput').value.trim();
+        if (!text) return;
+        await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({chat_id: ADMIN_ID, text: `wish: ${text}`})
+        });
+        document.getElementById('wishInput').value = '';
+        alert('пожелание отправлено');
+    }
+
+    document.getElementById('sendWishBtn').onclick = sendWish;
+    setInterval(loadUpdates, 3000);
+    loadUpdates();
+</script>
+</body>
+</html>

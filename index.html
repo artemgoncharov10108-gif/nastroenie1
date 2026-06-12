@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Сафийчик ❤️ Центр чувств</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { background: linear-gradient(145deg, #0f0715, #1f1228); font-family: 'Segoe UI', sans-serif; color: #f0e6ff; padding: 1.5rem; }
+        .container { max-width: 700px; margin: 0 auto; }
+        .card { background: rgba(25,20,35,0.7); backdrop-filter: blur(12px); border-radius: 2rem; padding: 1.5rem; margin-bottom: 1.5rem; border: 1px solid #ff6b8a; }
+        .card-title { font-size: 1.4rem; font-weight: bold; margin-bottom: 1rem; border-left: 4px solid #ff6b8a; padding-left: 0.8rem; }
+        input[type="range"] { width: 100%; margin: 1rem 0; }
+        textarea, button { width: 100%; padding: 0.8rem; border-radius: 1rem; border: none; margin-top: 0.5rem; }
+        button { background: #ff6b8a; color: white; font-weight: bold; cursor: pointer; }
+        .mood-value { font-size: 2rem; text-align: center; }
+        .wish-item { background: #2a1e32; padding: 0.8rem; border-radius: 1rem; margin-top: 0.5rem; border-left: 3px solid #ffb6c1; }
+        .wish-date { font-size: 0.7rem; opacity: 0.6; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="card"><h1 style="text-align:center;">💖 Центр чувств Сафийчик 💖</h1></div>
+
+    <div class="card">
+        <div class="card-title">🎚️ как ты сегодня?</div>
+        <input type="range" id="moodSlider" min="0" max="100" value="50">
+        <div class="mood-value" id="moodValue">😐 50%</div>
+    </div>
+
+    <div class="card">
+        <div class="card-title">💙 его настроение</div>
+        <div class="mood-value" id="hisMood">😐 загрузка...</div>
+    </div>
+
+    <div class="card">
+        <div class="card-title">😔 чего не хватает?</div>
+        <textarea id="missingText" rows="2" placeholder="напиши..."></textarea>
+        <button id="sendMissing">отправить</button>
+    </div>
+
+    <div class="card">
+        <div class="card-title">💌 его пожелания для тебя</div>
+        <div id="wishesList">загрузка...</div>
+    </div>
+</div>
+
+<script>
+    // ⚠️ ВСТАВЬ СВОЙ ТОКЕН
+    const BOT_TOKEN = '123456:ABCdef...';
+    // ⚠️ ВСТАВЬ СВОЙ ID (получи у @userinfobot)
+    const ADMIN_ID = '123456789';
+
+    async function sendToAdmin(text) {
+        await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({chat_id: ADMIN_ID, text: text})
+        });
+    }
+
+    async function loadFromAPI() {
+        try {
+            const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/getUpdates`);
+            const data = await res.json();
+            if (data.ok && data.result) {
+                for (let upd of data.result) {
+                    if (upd.message && upd.message.text && upd.message.text.startsWith('wish:')) {
+                        const wishText = upd.message.text.slice(5);
+                        const wishes = JSON.parse(localStorage.getItem('wishes') || '[]');
+                        wishes.unshift({ text: wishText, date: new Date().toLocaleString() });
+                        localStorage.setItem('wishes', JSON.stringify(wishes));
+                        renderWishes();
+                        await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/deleteMessage`, {
+                            method: 'POST',
+                            headers: {'Content-Type': 'application/json'},
+                            body: JSON.stringify({chat_id: ADMIN_ID, message_id: upd.message.message_id})
+                        });
+                    }
+                    if (upd.message && upd.message.text && upd.message.text.startsWith('mood:')) {
+                        const hisMood = upd.message.text.slice(5);
+                        document.getElementById('hisMood').innerHTML = hisMood;
+                    }
+                }
+            }
+        } catch(e) { console.log(e); }
+    }
+
+    function renderWishes() {
+        const wishes = JSON.parse(localStorage.getItem('wishes') || '[]');
+        const container = document.getElementById('wishesList');
+        if (wishes.length === 0) container.innerHTML = 'пока ничего';
+        else container.innerHTML = wishes.map(w => `<div class="wish-item"><div class="wish-date">📅 ${w.date}</div>💬 ${w.text}</div>`).join('');
+    }
+
+    const slider = document.getElementById('moodSlider');
+    const moodSpan = document.getElementById('moodValue');
+    slider.addEventListener('input', async () => {
+        let emoji = slider.value < 20 ? '😭' : slider.value < 40 ? '😐' : slider.value < 60 ? '🙂' : slider.value < 80 ? '😊' : '🥰';
+        moodSpan.innerHTML = `${emoji} ${slider.value}%`;
+        await sendToAdmin(`mood: ${emoji} ${slider.value}%`);
+    });
+
+    document.getElementById('sendMissing').onclick = async () => {
+        const txt = document.getElementById('missingText').value.trim();
+        if (txt) {
+            await sendToAdmin(`missing: ${txt}`);
+            document.getElementById('missingText').value = '';
+            alert('отправлено');
+        }
+    };
+
+    setInterval(loadFromAPI, 3000);
+    renderWishes();
+    loadFromAPI();
+</script>
+</body>
+</html>
